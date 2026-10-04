@@ -1,6 +1,6 @@
 #pragma once
 #include <flutter/plugin_registrar_windows.h>
-#include "app_updates.h"
+#include "update_controller.h"
 namespace deskup {
 class DeskupPlugin : public flutter::Plugin {
  public:
@@ -10,6 +10,6 @@ class DeskupPlugin : public flutter::Plugin {
  private:
   flutter::PluginRegistrarWindows* registrar_;
   int delegate_id_;
-  std::unique_ptr<AppUpdates> updates_;
+  std::unique_ptr<UpdateController> updates_;
 };
 }
