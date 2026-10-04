@@ -172,13 +172,14 @@ manual dispatch. It follows Cutdex Agent's `quality` / `test` / `checks` structu
   is cancelled, or is skipped.
 
 Actions are pinned to commit SHAs, checkout credentials are not persisted, and
-validation jobs have read-only permissions; only the tag release job can write repository contents. The plugin does not commit a root lockfile,
+validation jobs have read-only permissions; the publication job can request an OIDC token,
+and only the release job can write repository contents. The plugin does not commit a root lockfile,
 so dependency resolution uses `flutter pub get` rather than `--enforce-lockfile`.
 
 These jobs validate the plugin independently of the Cutdex application. They do
 not exercise downloading and applying a real update: that requires two separately
-packaged versions and a dedicated test feed. After a valid version tag passes CI, the workflow creates a GitHub Release with
-automatically generated notes. pub.dev publishing is not part of this workflow.
+packaged versions and a dedicated test feed. After a valid version tag passes CI, the workflow publishes to pub.dev using
+GitHub OIDC, then creates a GitHub Release with automatically generated notes.
 
 ## Branch protection and versions
 
@@ -194,14 +195,30 @@ The current package version is **0.1.0**. Use semantic versions and update
 `pubspec.yaml`, `macos/deskup.podspec`, and `CHANGELOG.md` together in a pull request.
 The quality job checks their consistency. After merging and passing CI, an
 administrator can tag the main commit as `v<version>` (for example `v0.1.0`). The
-release job verifies the exact version and main ancestry before creating a GitHub
-Release. A prerelease version such as `0.1.0-beta.1` creates a prerelease.
+publication job verifies the exact version and main ancestry before publishing.
+The release job runs only after publication succeeds. A prerelease version such as `0.1.0-beta.1` creates a prerelease.
 
-Tags, GitHub Releases, and pub.dev publication are separate actions. This workflow
-does not publish to pub.dev, and adding it does not create a release tag.
+
 
 ## License
 
 MIT. See [LICENSE](LICENSE). The bundled Velopack SDK retains its own license
 notice in `windows/velopack-LICENSE.txt`; Sparkle is distributed under its
 upstream license.
+
+### Automatic publication
+
+Push a new `v<version>` tag to run the complete CI, validate its package version
+and main ancestry, publish to pub.dev, and finally create its GitHub Release.
+Publishing is restricted to tag **push** events; manual CI dispatches do not publish.
+Enable GitHub Actions automated publishing on pub.dev with repository `lingjhf/deskup`
+and tag pattern `v{{version}}`, allowing push events. These settings have been
+verified for this package. Temporary OIDC credentials are provisioned immediately
+before upload; no long-lived publishing secret is stored in GitHub.
+
+On retries, the publication job checks the exact version on pub.dev. If it exists,
+it verifies the archive checksum and compares published files with this commit,
+including all tracked Dart/native source files. Matching content skips upload;
+different content or registry errors fail the job and block GitHub Release creation.
+Do not move existing tags; fix changed package contents with a new version and tag.
+This workflow change does not create a new package version or tag.
