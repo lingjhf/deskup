@@ -1,5 +1,7 @@
 ## 0.1.0
 
+- License the plugin under MIT and finalize maintainer metadata.
+
 - Document the public API contract for initialization, platform capabilities,
   asynchronous operations, status snapshots, and instance disposal.
 - Separate Windows SDK resource ownership, environment helpers, and channel

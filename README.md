@@ -199,3 +199,9 @@ Release. A prerelease version such as `0.1.0-beta.1` creates a prerelease.
 
 Tags, GitHub Releases, and pub.dev publication are separate actions. This workflow
 does not publish to pub.dev, and adding it does not create a release tag.
+
+## License
+
+MIT. See [LICENSE](LICENSE). The bundled Velopack SDK retains its own license
+notice in `windows/velopack-LICENSE.txt`; Sparkle is distributed under its
+upstream license.

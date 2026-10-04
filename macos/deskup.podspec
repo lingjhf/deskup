@@ -10,7 +10,7 @@ Pod::Spec.new do |s|
 Desktop updates using Sparkle and Velopack.
                        DESC
   s.homepage         = 'https://github.com/lingjhf/deskup'
-  s.license          = { :file => '../LICENSE' }
+  s.license          = { :type => 'MIT', :file => '../LICENSE' }
   s.author           = { 'lingjhf' => 'lingj.jhf@outlook.com' }
 
   s.source           = { :path => '.' }
