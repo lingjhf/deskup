@@ -7,16 +7,18 @@
 
 #include <memory>
 
+namespace deskup {
+
 // Network/patch work runs off the UI thread; channel calls stay on the UI thread.
-class AppUpdates {
+class UpdateController {
  public:
   static UINT StatusMessage() {
     static const UINT message = RegisterWindowMessageW(L"deskup.statusChanged");
     return message;
   }
   static constexpr UINT_PTR kTimerId = 0xCD41;
-  AppUpdates(HWND window, flutter::BinaryMessenger* messenger);
-  ~AppUpdates();
+  UpdateController(HWND window, flutter::BinaryMessenger* messenger);
+  ~UpdateController();
   bool HandleMessage(UINT message, WPARAM wparam);
 
  private:
@@ -29,3 +31,5 @@ class AppUpdates {
   std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> install_result_;
   bool ready_ = false;
 };
+
+}  // namespace deskup

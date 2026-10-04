@@ -20,7 +20,9 @@ set(PLUGIN_NAME "deskup_plugin")
 list(APPEND PLUGIN_SOURCES
   "deskup_plugin.cpp"
   "deskup_plugin.h"
-  "app_updates.cpp"
+  "update_controller.cpp"
+  "update_environment.cpp"
+  "velopack_session.cpp"
 )
 
 # Define the plugin library target. Its name must not be changed (see comment

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:deskup/deskup.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -47,6 +49,52 @@ void main() {
       expect(updater.check, throwsStateError);
     },
   );
+
+  test('concurrent initialization shares one native request', () async {
+    final ready = Completer<void>();
+    var starts = 0;
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      if (call.method == 'ready') {
+        starts++;
+        await ready.future;
+      }
+      return null;
+    });
+    final updater = Deskup(channel: channel);
+    addTearDown(updater.dispose);
+    final first = updater.initialize();
+    final second = updater.initialize();
+    expect(identical(first, second), isTrue);
+    ready.complete();
+    await Future.wait([first, second]);
+    expect(starts, 1);
+  });
+
+  for (final fail in [false, true]) {
+    test('dispose during initialization with failure=$fail', () async {
+      final ready = Completer<void>();
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        await ready.future;
+        if (fail) throw PlatformException(code: 'startupFailed');
+        return null;
+      });
+      final updater = Deskup(channel: channel);
+      final initialization = updater.initialize();
+      final outcome = fail
+          ? expectLater(initialization, throwsA(isA<PlatformException>()))
+          : initialization;
+      final closed = expectLater(updater.events, emitsDone);
+      updater.dispose();
+      updater.dispose();
+      await event({'phase': 'available'});
+      ready.complete();
+      await outcome;
+      await closed;
+      expect(updater.initialize, throwsStateError);
+      await expectLater(updater.status(), throwsStateError);
+      expect(updater.check, throwsStateError);
+    });
+  }
 
   test('failed initialization can be retried', () async {
     var attempts = 0;
