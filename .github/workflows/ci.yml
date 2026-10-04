@@ -1,0 +1,139 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  quality:
+    name: Format and analyze
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          channel: stable
+          flutter-version: '3.47.5'
+          cache: true
+      - run: flutter --version
+      # The plugin library deliberately does not commit a root pubspec.lock.
+      - run: flutter pub get
+      - run: flutter pub get
+        working-directory: example
+      - run: dart format --output=none --set-exit-if-changed lib test example/lib example/test example/integration_test
+      - run: flutter analyze --fatal-infos
+      - name: Check version metadata
+        run: python3 tool/check_version.py
+      - name: Test version checks
+        run: python3 -m unittest discover -s tool -p 'test_*.py'
+
+  test:
+    name: Test (${{ matrix.os }}, Flutter ${{ matrix.flutter || 'stable' }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            flutter: '3.47.5'
+            desktop: ''
+          - os: ubuntu-24.04
+            flutter: ''
+            desktop: ''
+          - os: macos-latest
+            flutter: '3.47.5'
+            desktop: macos
+          - os: windows-latest
+            flutter: '3.47.5'
+            desktop: windows
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          channel: stable
+          # An empty version selects the latest release on the stable channel.
+          flutter-version: ${{ matrix.flutter }}
+          cache: true
+      - run: flutter --version
+      - run: flutter pub get
+      - run: flutter pub get
+        working-directory: example
+      - name: Run plugin tests
+        run: flutter test --reporter expanded
+      - name: Run example widget tests
+        run: flutter test --reporter expanded test
+        working-directory: example
+      - name: Build desktop example
+        if: matrix.desktop != ''
+        run: flutter build ${{ matrix.desktop }} --release
+        working-directory: example
+      - name: Run native plugin integration smoke test
+        if: matrix.desktop != ''
+        run: flutter test --reporter expanded --timeout=10m integration_test/plugin_integration_test.dart -d ${{ matrix.desktop }}
+        working-directory: example
+
+  checks:
+    name: CI passed
+    if: always()
+    needs: [quality, test]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Require all checks to pass
+        env:
+          QUALITY_RESULT: ${{ needs.quality.result }}
+          TEST_RESULT: ${{ needs.test.result }}
+        run: |
+          test "$QUALITY_RESULT" = success
+          test "$TEST_RESULT" = success
+
+  release:
+    name: GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate version and main ancestry
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: python3 tool/check_version.py --tag "$RELEASE_TAG" --check-main
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Release already exists: $RELEASE_TAG"
+            exit 0
+          fi
+          prerelease=()
+          version="${RELEASE_TAG%%+*}"
+          if [[ "$version" == *-* ]]; then
+            prerelease=(--prerelease)
+          fi
+          gh release create "$RELEASE_TAG" --verify-tag --generate-notes "${prerelease[@]}"
