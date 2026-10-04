@@ -31,6 +31,9 @@ def verify_archive(root, archive):
         ['git', 'ls-files', '-z', '--', 'lib', 'android', 'ios', 'linux', 'macos', 'windows'],
         cwd=root).decode().split('\0')
     for name in filter(None, tracked):
+        # Pub omits hidden metadata such as platform .gitignore files.
+        if any(part.startswith('.') for part in PurePosixPath(name).parts):
+            continue
         if name not in published:
             raise ValueError('Published version is missing source file: ' + name)
     for name in ['pubspec.yaml', 'README.md', 'CHANGELOG.md', 'LICENSE']:

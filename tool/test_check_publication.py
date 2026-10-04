@@ -38,6 +38,11 @@ class PublicationChecks(unittest.TestCase):
     def test_matching_publication_can_be_skipped(self):
         verify_archive(self.root, self.archive())
 
+    def test_hidden_git_metadata_is_not_required_in_pub_archive(self):
+        with patch('check_publication.subprocess.check_output',
+                   return_value=b'lib/example.dart\0windows/.gitignore\0'):
+            verify_archive(self.root, self.archive())
+
     def test_different_published_bytes_are_rejected(self):
         (self.root / 'lib/example.dart').write_text('changed')
         with self.assertRaisesRegex(ValueError, 'differs'):
