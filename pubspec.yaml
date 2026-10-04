@@ -1,6 +1,6 @@
 name: deskup
 description: "Desktop application updates using Sparkle on macOS and Velopack on Windows."
-version: 0.0.1
+version: 0.1.0
 repository: https://github.com/lingjhf/deskup
 homepage: https://github.com/lingjhf/deskup
 

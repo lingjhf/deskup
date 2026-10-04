@@ -4,14 +4,14 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'deskup'
-  s.version          = '0.0.1'
+  s.version          = '0.1.0'
   s.summary          = 'Desktop updates using Sparkle and Velopack.'
   s.description      = <<-DESC
 Desktop updates using Sparkle and Velopack.
                        DESC
   s.homepage         = 'https://github.com/lingjhf/deskup'
   s.license          = { :file => '../LICENSE' }
-  s.author           = { 'Your Company' => 'email@example.com' }
+  s.author           = { 'lingjhf' => 'lingj.jhf@outlook.com' }
 
   s.source           = { :path => '.' }
   s.source_files = 'deskup/Sources/deskup/**/*'

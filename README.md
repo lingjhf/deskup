@@ -23,6 +23,23 @@ await subscription.cancel();
 updater.dispose();
 ```
 
+### Initialization and lifecycle
+
+`initialize()` installs the event handler and requests native startup. Its future
+completing does not guarantee that the Windows SDK has finished initializing;
+observe `configured` and `canCheck` through `status()` and `events`. A missing feed
+or unpackaged Windows build remains unconfigured. On macOS, Sparkle owns its native
+UI and does not emit the Windows operation status stream.
+
+Repeated and concurrent initialization calls share one request. A failed request
+can be retried. Use exactly one instance per Flutter engine: instances on the same
+channel share a native event handler and must not compete for it.
+
+`dispose()` is idempotent, detaches the event handler and closes the event stream.
+It does not cancel native background work or an outstanding initialization request.
+That request may still complete or fail. After disposal, calls on the instance fail
+with `StateError`; create a new instance when needed.
+
 `UpdateStatus` reports configuration, current version/build, automatic checking,
 phase, available version, progress, error, and platform capabilities. Missing feeds
 and ordinary unpackaged Windows builds report `configured: false`.
@@ -173,10 +190,10 @@ blocked, with no administrator bypass.
 Tags matching `v*` can be created only by repository administrators. A separate
 ruleset prevents anyone from updating or deleting existing version tags.
 
-The package currently starts at **0.0.1**. Use semantic versions and update
+The current package version is **0.1.0**. Use semantic versions and update
 `pubspec.yaml`, `macos/deskup.podspec`, and `CHANGELOG.md` together in a pull request.
 The quality job checks their consistency. After merging and passing CI, an
-administrator can tag the main commit as `v<version>` (for example `v0.0.1`). The
+administrator can tag the main commit as `v<version>` (for example `v0.1.0`). The
 release job verifies the exact version and main ancestry before creating a GitHub
 Release. A prerelease version such as `0.1.0-beta.1` creates a prerelease.
 

@@ -25,6 +25,7 @@ class UpdateStatus {
     this.error = '',
   });
 
+  /// Decodes a native snapshot, defaulting absent fields and unknown phases.
   factory UpdateStatus.fromMap(Map<String, Object?> map) => UpdateStatus(
     configured: map['configured'] as bool? ?? false,
     canCheck: map['canCheck'] as bool? ?? false,
@@ -42,15 +43,43 @@ class UpdateStatus {
     error: map['error'] as String? ?? '',
   );
 
-  final bool configured,
-      canCheck,
-      automaticChecks,
-      supportsDownload,
-      supportsInstall;
-  final String version, build, availableVersion, error;
+  /// Whether the native updater has usable configuration and installation metadata.
+  final bool configured;
+
+  /// Whether a check can be requested in the current native state.
+  final bool canCheck;
+
+  /// Whether automatic update checking is enabled.
+  final bool automaticChecks;
+
+  /// Whether the platform supports downloading through the Dart API.
+  final bool supportsDownload;
+
+  /// Whether the platform supports installing through the Dart API.
+  final bool supportsInstall;
+
+  /// The running application's version, or an empty string if unavailable.
+  final String version;
+
+  /// The running application's build, or an empty string if unavailable.
+  final String build;
+
+  /// The available or downloaded Windows update version.
+  final String availableVersion;
+
+  /// The latest asynchronous Windows operation error, or an empty string.
+  ///
+  /// This is a native message rather than a stable machine-readable error code.
+  /// Command errors are delivered separately as platform exceptions.
+  final String error;
+
+  /// The Windows operation phase; macOS defaults to [UpdatePhase.idle].
   final UpdatePhase phase;
+
+  /// The Windows download percentage from zero to one hundred.
   final int progress;
 
+  /// Encodes this snapshot using the native channel field names.
   Map<String, Object?> toMap() => {
     'configured': configured,
     'canCheck': canCheck,
