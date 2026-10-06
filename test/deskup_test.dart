@@ -148,4 +148,52 @@ void main() {
       ),
     );
   });
+
+  test(
+    'initialization snapshots configuration and install passes options',
+    () async {
+      final calls = <MethodCall>[];
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        calls.add(call);
+        return null;
+      });
+      final updater = Deskup(
+        channel: channel,
+        windows: WindowsUpdateConfiguration(
+          source: WebUpdateSource(
+            url: Uri.parse('https://updates.example.com/app'),
+            timeout: const Duration(seconds: 40),
+          ),
+          expectedPackageId: 'App',
+        ),
+      );
+      addTearDown(updater.dispose);
+      await updater.initialize();
+      final windows = (calls.single.arguments as Map)['windows'] as Map;
+      expect((windows['source'] as Map)['timeoutMilliseconds'], 40000);
+      await updater.install(
+        silent: false,
+        restartArguments: ['--project', '文档 with spaces'],
+      );
+      expect(calls.last.arguments, {
+        'silent': false,
+        'restart': true,
+        'restartArguments': ['--project', '文档 with spaces'],
+      });
+      await updater.install(restart: false);
+      expect(calls.last.arguments, {
+        'silent': true,
+        'restart': false,
+        'restartArguments': <String>[],
+      });
+      expect(
+        () => updater.install(restart: false, restartArguments: ['--open']),
+        throwsArgumentError,
+      );
+      expect(
+        () => updater.install(restartArguments: ['bad\u0000argument']),
+        throwsArgumentError,
+      );
+    },
+  );
 }

@@ -1,6 +1,10 @@
-## Unreleased
+## 0.3.0
 
-- Apply Windows updates silently after the host exits, retaining automatic relaunch.
+- Breaking: replace Windows CMake settings with immutable typed Dart source and policy configuration.
+- Add source, channel, prerelease, automatic interval, web timeout, downgrade and delta options.
+- Add per-install silent, restart and restart-argument options.
+- Expose release notes and full package size in Windows status.
+- Add explicit Sparkle feed and interval overrides, retaining the bundled signature key.
 
 ## 0.2.0
 

@@ -2,7 +2,6 @@
 #include <windows.h>
 #include <Velopack.h>
 #include <filesystem>
-#include "update_config.h"
 #include "update_environment.h"
 
 namespace deskup {
@@ -37,19 +36,22 @@ struct VelopackSession::Impl {
  public:
   bool configured() const { return manager_ != nullptr; }
 
-  UpdateResult Initialize() {
-    const std::string url = DESKUP_WINDOWS_UPDATE_URL;
-    if (url.empty() || !HasPackageManifest()) return {};
+  UpdateResult Initialize(const WindowsConfiguration& config) {
+    config_ = config;
+    if (!config.enabled || !HasPackageManifest()) return {};
+    const auto& url = config.url;
     vpkc_http_options_t http{};
-    http.TimeoutMilliseconds = 600000;  // Large processing bundles need time.
-    if (DESKUP_SOURCE_GITEA) {
+    http.TimeoutMilliseconds = config.timeout_ms;
+    if (config.gitea) {
       source_.reset(vpkc_new_source_gitea(
-          url.c_str(), nullptr, DESKUP_INCLUDE_PRERELEASES != 0));
+          url.c_str(), nullptr, config.prereleases));
     } else {
       source_.reset(vpkc_new_source_http_url_with_options(url.c_str(), &http));
     }
     vpkc_update_options_t options{};
-    options.MaximumDeltasBeforeFallback = 10;
+    options.MaximumDeltasBeforeFallback = config.maximum_deltas;
+    options.AllowVersionDowngrade = config.allow_downgrade;
+    options.ExplicitChannel = config.channel.empty() ? nullptr : const_cast<char*>(config.channel.c_str());
     vpkc_update_manager_t* manager = nullptr;
     const bool created = source_ && vpkc_new_update_manager_with_source(
         source_.get(), &options, nullptr, &manager);
@@ -61,7 +63,8 @@ struct VelopackSession::Impl {
     }
     char id[256]{};
     vpkc_get_app_id(manager_.get(), id, sizeof(id));
-    if (std::string(id) != DESKUP_UPDATE_PACKAGE_ID) {
+    installed_id_ = id;
+    if (!config.expected_id.empty() && installed_id_ != config.expected_id) {
       manager_.reset();
       return UpdateResult::Failure("Unexpected installed package identity");
     }
@@ -79,7 +82,7 @@ struct VelopackSession::Impl {
     } else if (check == UPDATE_AVAILABLE) {
       if (!update_ || !update_->TargetFullRelease) {
         result = UpdateResult::Failure("Update release metadata is missing");
-      } else if (std::string(update_->TargetFullRelease->PackageId) != DESKUP_UPDATE_PACKAGE_ID) {
+      } else if (std::string(update_->TargetFullRelease->PackageId) != installed_id_) {
         result = UpdateResult::Failure("Update package identity does not match this app");
         update_.reset();
       } else {
@@ -90,7 +93,7 @@ struct VelopackSession::Impl {
       result.phase = Phase::Current;
     }
     result = WithPending(std::move(result));
-    if (result.succeeded) WritePreference(L"LastCheck", Now());
+    if (result.succeeded) WritePreference(preference_key(), L"LastCheck", Now());
     return result;
   }
 
@@ -111,16 +114,22 @@ struct VelopackSession::Impl {
     return result;
   }
 
-  UpdateResult Install() {
+  UpdateResult Install(const InstallOptions& options) {
     auto result = WithPending({});
     if (!pending_) return UpdateResult::Failure("Downloaded update is missing");
-    // The host owns update UI; apply quietly after it exits, then restart.
+    std::vector<char*> arguments;
+    for (const auto& argument : options.arguments) arguments.push_back(const_cast<char*>(argument.c_str()));
     result.succeeded = vpkc_wait_exit_then_apply_updates(
-        manager_.get(), pending_.get(), true, true, nullptr, 0);
+        manager_.get(), pending_.get(), options.silent, options.restart,
+        arguments.empty() ? nullptr : arguments.data(), arguments.size());
     if (!result.succeeded) result.error = LastError();
     return result;
   }
 
+  std::wstring preference_key() const {
+    const auto key = "Software\\" + config_.preference_namespace + "\\" + installed_id_ + "\\Updates";
+    return std::wstring(key.begin(), key.end());
+  }
  private:
   UpdateResult WithPending(UpdateResult result) {
     pending_.reset();
@@ -131,6 +140,13 @@ struct VelopackSession::Impl {
       result.phase = Phase::Ready;
       result.available = pending_->Version;
     }
+    const auto* asset = pending_ ? pending_.get() :
+        (update_ ? update_->TargetFullRelease : nullptr);
+    if (asset) {
+      result.notes_markdown = asset->NotesMarkdown ? asset->NotesMarkdown : "";
+      result.notes_html = asset->NotesHtml ? asset->NotesHtml : "";
+      result.package_size = static_cast<int64_t>(asset->Size);
+    }
     return result;
   }
 
@@ -138,15 +154,18 @@ struct VelopackSession::Impl {
   SdkPointer<vpkc_update_manager_t, vpkc_free_update_manager> manager_;
   SdkPointer<vpkc_update_info_t, vpkc_free_update_info> update_;
   SdkPointer<vpkc_asset_t, vpkc_free_asset> pending_;
+  WindowsConfiguration config_;
+  std::string installed_id_;
 };
 
 VelopackSession::VelopackSession() : impl_(std::make_unique<Impl>()) {}
 VelopackSession::~VelopackSession() = default;
 bool VelopackSession::configured() const { return impl_->configured(); }
-UpdateResult VelopackSession::Initialize() { return impl_->Initialize(); }
+UpdateResult VelopackSession::Initialize(const WindowsConfiguration& config) { return impl_->Initialize(config); }
+std::wstring VelopackSession::preference_key() const { return impl_->preference_key(); }
 UpdateResult VelopackSession::Check() { return impl_->Check(); }
 UpdateResult VelopackSession::Download(void (*progress)(void*, size_t), void* data) {
   return impl_->Download(progress, data);
 }
-UpdateResult VelopackSession::Install() { return impl_->Install(); }
+UpdateResult VelopackSession::Install(const InstallOptions& options) { return impl_->Install(options); }
 }  // namespace deskup

@@ -3,25 +3,18 @@
 #include <chrono>
 #include <cwchar>
 #include <vector>
-#include "update_config.h"
 
 namespace deskup {
-namespace {
-std::wstring PreferenceKey() {
-  const std::string id = DESKUP_UPDATE_PACKAGE_ID;
-  return std::wstring(DESKUP_PREFERENCE_ROOT) + std::wstring(id.begin(), id.end()) + L"\\Updates";
-}
-}  // namespace
-DWORD ReadPreference(const wchar_t* name) {
+DWORD ReadPreference(const std::wstring& key, const wchar_t* name) {
   DWORD value = 0;
   DWORD size = sizeof(value);
-  RegGetValueW(HKEY_CURRENT_USER, PreferenceKey().c_str(), name, RRF_RT_REG_DWORD,
+  RegGetValueW(HKEY_CURRENT_USER, key.c_str(), name, RRF_RT_REG_DWORD,
                nullptr, &value, &size);
   return value;
 }
-bool WritePreference(const wchar_t* name, DWORD value) {
+bool WritePreference(const std::wstring& path, const wchar_t* name, DWORD value) {
   HKEY key = nullptr;
-  if (RegCreateKeyExW(HKEY_CURRENT_USER, PreferenceKey().c_str(), 0, nullptr, 0,
+  if (RegCreateKeyExW(HKEY_CURRENT_USER, path.c_str(), 0, nullptr, 0,
                       KEY_SET_VALUE, nullptr, &key, nullptr) != ERROR_SUCCESS) {
     return false;
   }

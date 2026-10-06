@@ -4,17 +4,29 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 export 'src/update_status.dart';
+export 'src/update_configuration.dart';
 import 'src/update_status.dart';
+import 'src/update_configuration.dart';
 
 /// Native desktop updates backed by Sparkle (macOS) and Velopack (Windows).
 ///
 /// Own one instance per Flutter engine and dispose it when no longer needed.
 class Deskup {
   /// Creates the engine's update client using [channel] for native communication.
-  factory Deskup({MethodChannel channel = const MethodChannel('deskup')}) =>
-      Deskup._(channel);
+  ///
+  /// [windows] supplies the immutable Windows policy, or disables Windows
+  /// updates when absent. [macos] overrides Sparkle settings independently.
+  /// Invalid settings throw [ArgumentError] before native initialization.
+  factory Deskup({
+    WindowsUpdateConfiguration? windows,
+    MacOSUpdateConfiguration macos = const MacOSUpdateConfiguration(),
+    MethodChannel channel = const MethodChannel('deskup'),
+  }) => Deskup._(channel, windows?.toMap(), macos.toMap());
 
-  Deskup._(this._channel);
+  Deskup._(this._channel, this._windows, this._macos);
+
+  final Map<String, Object?>? _windows;
+  final Map<String, Object?> _macos;
 
   /// Whether the current platform is macOS or Windows.
   static bool get isSupported =>
@@ -62,7 +74,10 @@ class Deskup {
       }
     });
     try {
-      await _channel.invokeMethod<void>('ready');
+      await _channel.invokeMethod<void>('ready', {
+        'windows': _windows,
+        'macos': _macos,
+      });
     } catch (_) {
       _started = false;
       _initialization = null;
@@ -108,7 +123,24 @@ class Deskup {
   /// update and relaunch the app. Completion does not confirm that the relaunched
   /// app started successfully. Throws [PlatformException] on scheduling failure
   /// and [MissingPluginException] on macOS.
-  Future<void> install() => _invoke('install');
+  /// [silent] suppresses Velopack UI where possible. [restart] controls relaunch;
+  /// the host still exits when it is `false`. [restartArguments] are passed only
+  /// to the new process and require [restart]. These options are Windows-only.
+  Future<void> install({
+    bool silent = true,
+    bool restart = true,
+    List<String> restartArguments = const [],
+  }) {
+    if ((!restart && restartArguments.isNotEmpty) ||
+        restartArguments.any((value) => value.contains('\u0000'))) {
+      throw ArgumentError('Invalid restart arguments');
+    }
+    return _invoke('install', {
+      'silent': silent,
+      'restart': restart,
+      'restartArguments': List<String>.of(restartArguments),
+    });
+  }
 
   /// Persists whether the native updater checks automatically.
   ///

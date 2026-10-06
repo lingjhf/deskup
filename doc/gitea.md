@@ -1,19 +1,24 @@
 # Windows updates from Gitea Releases
 
-deskup 0.2.0 uses the official `vpkc_new_source_gitea` API in the pinned
+deskup 0.3.0 uses the official `vpkc_new_source_gitea` API in the pinned
 Velopack 1.2.161 SDK. No extra update server or custom attachment resolver is
 required. macOS continues to use a Sparkle appcast.
 
 ## Host configuration
 
-Set these variables in the host `windows/CMakeLists.txt` before including
-`flutter/generated_plugins.cmake`:
+Pass immutable Dart configuration when creating the client:
 
-```cmake
-set(DESKUP_WINDOWS_UPDATE_SOURCE "gitea")
-set(DESKUP_WINDOWS_UPDATE_URL "https://git.example.com/team/app")
-set(DESKUP_UPDATE_PACKAGE_ID "MyApp")
-set(DESKUP_GITEA_INCLUDE_PRERELEASES OFF)
+```dart
+final updater = Deskup(
+  windows: WindowsUpdateConfiguration(
+    source: GiteaUpdateSource(
+      repositoryUrl: Uri.parse('https://git.example.com/team/app'),
+      includePrereleases: false,
+    ),
+    expectedPackageId: 'MyApp',
+    // channel: 'beta', // Optional override of the installed channel.
+  ),
+);
 ```
 
 The URL is the repository page, not a clone URL ending in `.git`, a Releases
@@ -22,7 +27,7 @@ hosted at the origin root, with the API under `/api/v1`; subpath hosting is not
 supported by the pinned SDK. Ports and a trailing slash are accepted.
 
 Keep the Windows startup hook and installation save gate described in the
-[README](../README.md#windows-setup). Dart APIs do not change. A normal Flutter
+[README](../README.md#windows-setup). Native configuration is fixed for the engine lifetime. A normal Flutter
 build is unconfigured without Velopack installation metadata (`sq.version`).
 
 This version supports **public repositories and anonymously downloadable
@@ -57,8 +62,8 @@ version precedence; use a new version or a numeric prerelease component.
 - The installed package's Velopack channel determines the index filename.
   `--channel win-x64` reads `releases.win-x64.json`; Windows ARM64 packages
   should use their own channel and matching assets.
-- `DESKUP_GITEA_INCLUDE_PRERELEASES` defaults to OFF and filters out Gitea
-  Releases marked prerelease. ON includes both stable and prerelease releases;
+- `includePrereleases` defaults to false and filters out Gitea
+  Releases marked prerelease. true includes both stable and prerelease releases;
   it does not mean prerelease-only and does not switch the package channel.
 - Separate development and production package identities and channels, or use
   separate repositories. Gitea tags alone do not isolate package identity.
@@ -76,18 +81,20 @@ version precedence; use a new version or a numeric prerelease component.
   timeout does not apply to this source. Endpoint trust, HTTPS certificates,
   and attachment access must be managed by the host operator.
 
-## Migration from 0.1.0
+## Migration to 0.3.0
 
-All configured Windows hosts must now explicitly choose
-`DESKUP_WINDOWS_UPDATE_SOURCE`. Existing static directories use `web` and keep
-their existing URL. Gitea hosts use `gitea` and set a repository URL. Configuration
-is compiled into the binary, so changing the update origin requires distributing
-a rebuilt application. For an existing deployed population, keep its old feed
-available long enough to distribute the version that changes sources.
+Remove Windows `DESKUP_WINDOWS_UPDATE_*`, `DESKUP_UPDATE_PACKAGE_ID`,
+`DESKUP_GITEA_INCLUDE_PRERELEASES`, `DESKUP_PREFERENCE_ROOT`, and
+`DESKUP_ALLOW_LOCAL_HTTP` CMake settings. They are no longer read. Use the typed
+Dart configuration and per-call `install` options. Source settings are fixed
+at native initialization, and downloaded packages are always checked against
+the actual installed identity. Distribution still needs a new application build.
+Keep an old feed available long enough to deliver a source-changing version.
 
 ## Verification
 
-The CMake configuration tests run on any machine with CMake. Windows SDK
+Dart configuration and channel tests validate serialization and policy boundaries.
+Windows native parser tests compile the actual parser with Flutter headers. Windows SDK
 protocol tests use a loopback Gitea API fixture and the actual pinned DLL:
 
 ```powershell

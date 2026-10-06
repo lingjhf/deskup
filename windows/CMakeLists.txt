@@ -23,6 +23,7 @@ list(APPEND PLUGIN_SOURCES
   "update_controller.cpp"
   "update_environment.cpp"
   "velopack_session.cpp"
+  "runtime_configuration.cpp"
 )
 
 # Define the plugin library target. Its name must not be changed (see comment
