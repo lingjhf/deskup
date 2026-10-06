@@ -16,10 +16,21 @@ Velopack 1.2.161 SDK on 2026-10-06.
   discovered 2.0.0-beta.1 with prereleases enabled, and downloaded and verified
   the expected package in both cases. The temporary container and its volumes
   were removed after validation.
+- A separate real Gitea instance hosted the actual `vpk`-generated 1.0.1
+  installer, Portable ZIP, full `.nupkg` and channel index. A Flutter test host
+  using deskup 0.2.0 was launched from the 1.0.0 Velopack Portable distribution.
+  Through the public Dart API it discovered 1.0.1, downloaded it, validated
+  installation, saved state, applied the update and relaunched. The new process
+  reported version 1.0.1/build 2 and `phase: current`, with no error; the saved
+  state was preserved. These were unsigned test packages over explicitly
+  enabled loopback HTTP. The temporary container and volumes were removed.
+- Repository CI passed formatting/analysis, plugin/example tests on Linux,
+  Windows and macOS, and Windows/macOS native builds and integration smoke tests.
 
-The SDK tests and real-server check used synthetic installation metadata and
-package bytes. They did not run an installer, apply an update, restart an
-application, or verify preserved host state. Perform the real packaged-host
-upgrade scenario in [Gitea setup](gitea.md#verification) before shipping an
-application that uses this source. macOS behavior is unchanged; macOS builds and
-tests are covered by repository CI rather than this Windows workstation.
+The SDK protocol regressions used synthetic metadata and package bytes; the
+separate Portable end-to-end test used actual packaged Flutter applications and
+applied an update. Installing through Setup.exe, production signing/HTTPS,
+private repositories and application-specific persistence were not exercised.
+Perform the host-specific scenario in [Gitea setup](gitea.md#verification) for
+each application and distribution you ship. macOS behavior is unchanged;
+macOS builds and tests were validated by repository CI.
