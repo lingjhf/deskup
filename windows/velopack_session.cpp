@@ -42,7 +42,12 @@ struct VelopackSession::Impl {
     if (url.empty() || !HasPackageManifest()) return {};
     vpkc_http_options_t http{};
     http.TimeoutMilliseconds = 600000;  // Large processing bundles need time.
-    source_.reset(vpkc_new_source_http_url_with_options(url.c_str(), &http));
+    if (DESKUP_SOURCE_GITEA) {
+      source_.reset(vpkc_new_source_gitea(
+          url.c_str(), nullptr, DESKUP_INCLUDE_PRERELEASES != 0));
+    } else {
+      source_.reset(vpkc_new_source_http_url_with_options(url.c_str(), &http));
+    }
     vpkc_update_options_t options{};
     options.MaximumDeltasBeforeFallback = 10;
     vpkc_update_manager_t* manager = nullptr;

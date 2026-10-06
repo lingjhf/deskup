@@ -84,6 +84,12 @@ jobs:
         if: matrix.desktop != ''
         run: flutter build ${{ matrix.desktop }} --release
         working-directory: example
+      - name: Test Windows update sources against the native SDK
+        if: matrix.desktop == 'windows'
+        shell: pwsh
+        run: |
+          $env:DESKUP_TEST_VELOPACK_DLL = (Resolve-Path example/build/windows/x64/runner/Release/velopack_libc.dll).Path
+          python -m unittest discover -s tool -p 'test_*.py'
       - name: Run native plugin integration smoke test
         if: matrix.desktop != ''
         run: flutter test --reporter expanded --timeout=10m integration_test/plugin_integration_test.dart -d ${{ matrix.desktop }}

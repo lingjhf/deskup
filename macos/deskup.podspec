@@ -4,7 +4,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'deskup'
-  s.version          = '0.1.0'
+  s.version          = '0.2.0'
   s.summary          = 'Desktop updates using Sparkle and Velopack.'
   s.description      = <<-DESC
 Desktop updates using Sparkle and Velopack.
