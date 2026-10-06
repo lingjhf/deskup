@@ -136,8 +136,9 @@ try {
 }
 ```
 
-On successful installation, the plugin closes the host window and Velopack
-relaunches the application. On failure, the future throws so the host can restore
+On successful installation, the plugin closes the host window and asks Velopack
+to apply the update silently, then relaunch the application. The host owns any
+update confirmation and progress UI before exiting. On failure, the future throws so the host can restore
 its workspace. Network work runs off the window thread, and destroying the plugin
 does not wait for an in-flight request.
 

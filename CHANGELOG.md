@@ -1,3 +1,7 @@
+## Unreleased
+
+- Apply Windows updates silently after the host exits, retaining automatic relaunch.
+
 ## 0.2.0
 
 - Add an opt-in Windows Gitea Releases source using the pinned official Velopack C API.

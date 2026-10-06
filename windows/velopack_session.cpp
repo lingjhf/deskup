@@ -114,8 +114,9 @@ struct VelopackSession::Impl {
   UpdateResult Install() {
     auto result = WithPending({});
     if (!pending_) return UpdateResult::Failure("Downloaded update is missing");
+    // The host owns update UI; apply quietly after it exits, then restart.
     result.succeeded = vpkc_wait_exit_then_apply_updates(
-        manager_.get(), pending_.get(), false, true, nullptr, 0);
+        manager_.get(), pending_.get(), true, true, nullptr, 0);
     if (!result.succeeded) result.error = LastError();
     return result;
   }
