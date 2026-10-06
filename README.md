@@ -83,6 +83,7 @@ Set configuration in the host `windows/CMakeLists.txt` **before** including
 `flutter/generated_plugins.cmake`:
 
 ```cmake
+set(DESKUP_WINDOWS_UPDATE_SOURCE "web")
 set(DESKUP_WINDOWS_UPDATE_URL "https://updates.example.com/windows/x64")
 set(DESKUP_UPDATE_PACKAGE_ID "MyApp")
 # After generated_plugins.cmake has registered deskup:
@@ -117,6 +118,10 @@ and hourly timers enforce a minimum one-day interval. Preferences are stored und
 For offline builds, set environment variable `DESKUP_VELOPACK_ARCHIVE` to the official
 SDK ZIP; SHA-256 verification still runs. For local testing only, set
 `DESKUP_ALLOW_LOCAL_HTTP` to `ON` and use a loopback feed with an explicit port.
+
+For Gitea setup and release requirements, see [Gitea Releases](doc/gitea.md).
+Configured feeds require an explicit source (`web` or `gitea`) starting in 0.2.0.
+Unconfigured example/development builds can leave both settings unset.
 
 Before installation, validate availability and save host application state:
 
@@ -191,7 +196,7 @@ blocked, with no administrator bypass.
 Tags matching `v*` can be created only by repository administrators. A separate
 ruleset prevents anyone from updating or deleting existing version tags.
 
-The current package version is **0.1.0**. Use semantic versions and update
+The current package version is **0.2.0**. Use semantic versions and update
 `pubspec.yaml`, `macos/deskup.podspec`, and `CHANGELOG.md` together in a pull request.
 The quality job checks their consistency. After merging and passing CI, an
 administrator can tag the main commit as `v<version>` (for example `v0.1.0`). The
