@@ -21,6 +21,9 @@ class UpdateStatus {
     this.build = '',
     this.phase = UpdatePhase.idle,
     this.availableVersion = '',
+    this.releaseNotesMarkdown = '',
+    this.releaseNotesHtml = '',
+    this.packageSize = 0,
     this.progress = 0,
     this.error = '',
   });
@@ -39,6 +42,9 @@ class UpdateStatus {
       orElse: () => UpdatePhase.idle,
     ),
     availableVersion: map['availableVersion'] as String? ?? '',
+    releaseNotesMarkdown: map['releaseNotesMarkdown'] as String? ?? '',
+    releaseNotesHtml: map['releaseNotesHtml'] as String? ?? '',
+    packageSize: map['packageSize'] as int? ?? 0,
     progress: map['progress'] as int? ?? 0,
     error: map['error'] as String? ?? '',
   );
@@ -67,6 +73,17 @@ class UpdateStatus {
   /// The available or downloaded Windows update version.
   final String availableVersion;
 
+  /// The available update's Markdown release notes, or an empty string.
+  final String releaseNotesMarkdown;
+
+  /// The available update's HTML release notes, or an empty string.
+  ///
+  /// Treat this as untrusted release content before rendering it.
+  final String releaseNotesHtml;
+
+  /// The full update package size in bytes, or zero when unavailable.
+  final int packageSize;
+
   /// The latest asynchronous Windows operation error, or an empty string.
   ///
   /// This is a native message rather than a stable machine-readable error code.
@@ -90,6 +107,9 @@ class UpdateStatus {
     'build': build,
     'phase': phase.name,
     'availableVersion': availableVersion,
+    'releaseNotesMarkdown': releaseNotesMarkdown,
+    'releaseNotesHtml': releaseNotesHtml,
+    'packageSize': packageSize,
     'progress': progress,
     'error': error,
   };

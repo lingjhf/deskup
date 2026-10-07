@@ -1,5 +1,4 @@
 # Pin the SDK and its archive digest so local and CI builds use the same ABI.
-include("${CMAKE_CURRENT_SOURCE_DIR}/update_configuration.cmake")
 set(DESKUP_VELOPACK_VERSION "1.2.161")
 set(velopack_url "https://github.com/velopack/velopack/releases/download/${DESKUP_VELOPACK_VERSION}/velopack_libc_${DESKUP_VELOPACK_VERSION}.zip")
 if(DEFINED ENV{DESKUP_VELOPACK_ARCHIVE})
@@ -26,5 +25,4 @@ target_link_libraries(${PLUGIN_NAME} PRIVATE "${velopack_dll}.lib" "advapi32.lib
 set(deskup_runtime "${CMAKE_CURRENT_BINARY_DIR}/velopack_libc.dll")
 configure_file("${velopack_dll}" "${deskup_runtime}" COPYONLY)
 set(deskup_bundled_libraries "${deskup_runtime}" "${CMAKE_CURRENT_SOURCE_DIR}/velopack-LICENSE.txt" PARENT_SCOPE)
-configure_file("${CMAKE_CURRENT_SOURCE_DIR}/update_config.h.in" "${CMAKE_CURRENT_BINARY_DIR}/update_config.h" @ONLY)
 target_include_directories(${PLUGIN_NAME} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")

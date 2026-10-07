@@ -4,6 +4,7 @@
 #include <atomic>
 #include <mutex>
 #include <thread>
+#include <stdexcept>
 #include "update_environment.h"
 #include "velopack_session.h"
 
@@ -37,10 +38,10 @@ struct UpdateController::State {
 
   UpdateResult Run(Operation operation) {
     switch (operation) {
-      case Operation::Initialize: return session.Initialize();
+      case Operation::Initialize: return session.Initialize(configuration);
       case Operation::Check:
       case Operation::AutomaticCheck: return session.Check();
-      case Operation::Install: return session.Install();
+      case Operation::Install: return session.Install(install_options);
       case Operation::Download:
         return session.Download([](void* data, size_t progress) {
           auto* target = static_cast<State*>(data);
@@ -59,11 +60,17 @@ struct UpdateController::State {
   std::atomic<bool> alive{true};
   bool busy = false;
   bool configured = false;
-  bool automatic = ReadPreference(L"AutomaticChecks") != 0;
+  bool automatic = false;
+  WindowsConfiguration configuration;
+  InstallOptions install_options;
+  std::wstring preference_key;
   bool install_succeeded = false;
   Phase phase = Phase::Idle;
   std::string available;
   std::string error;
+  std::string notes_markdown;
+  std::string notes_html;
+  int64_t package_size = 0;
   int32_t progress = 0;
   VelopackSession session;
 };
@@ -77,23 +84,33 @@ UpdateController::UpdateController(HWND window, flutter::BinaryMessenger* messen
     if (method == "status") {
       result->Success(Status());
     } else if (method == "ready") {
-      if (!ready_) {
+      if (ready_) {
+        result->Error("alreadyInitialized", "Native configuration is immutable after initialization");
+        return;
+      }
+      try {
+        state_->configuration = ParseConfiguration(call.arguments());
+      } catch (const std::invalid_argument& error) {
+        result->Error("invalidConfiguration", error.what());
+        return;
+      }
+      {
         ready_ = true;
         // Registration precedes SetChildContent in standard Flutter runners.
         // Resolve the host after the view has been attached to its parent.
         state_->window = GetAncestor(state_->window, GA_ROOT);
-        SetTimer(state_->window, kTimerId, 3600000, nullptr);
+        SetTimer(state_->window, kTimerId, 60000, nullptr);
         Start(Operation::Initialize);
       }
       result->Success();
     } else if (method == "automaticChecks") {
       const auto* enabled = call.arguments() ? std::get_if<bool>(call.arguments()) : nullptr;
-      if (!enabled || !WritePreference(L"AutomaticChecks", *enabled ? 1 : 0)) {
-        result->Error("preferences", "Could not save update preference");
-        return;
-      }
       {
         std::lock_guard<std::mutex> lock(state_->mutex);
+        if (!enabled || !state_->configured || !WritePreference(state_->preference_key, L"AutomaticChecks", *enabled ? 1 : 0)) {
+          result->Error("preferences", "Could not save update preference");
+          return;
+        }
         state_->automatic = *enabled;
       }
       state_->Notify();
@@ -119,6 +136,12 @@ UpdateController::UpdateController(HWND window, flutter::BinaryMessenger* messen
       if (method == "validateInstall") {
         result->Success();
       } else if (method == "install") {
+        try {
+          state_->install_options = ParseInstallOptions(call.arguments());
+        } catch (const std::invalid_argument& error) {
+          result->Error("invalidInstallOptions", error.what());
+          return;
+        }
         install_result_ = std::move(result);
         Start(Operation::Install);
       } else {
@@ -132,9 +155,15 @@ UpdateController::UpdateController(HWND window, flutter::BinaryMessenger* messen
 }
 
 UpdateController::~UpdateController() {
+  Shutdown();
+}
+
+void UpdateController::Shutdown(bool detach_channel) {
+  if (stopped_) return;
+  stopped_ = true;
   state_->alive.store(false);
   KillTimer(state_->window, kTimerId);
-  channel_->SetMethodCallHandler(nullptr);
+  if (detach_channel) channel_->SetMethodCallHandler(nullptr);
   // The worker owns the session until completion, so closing the window neither
   // blocks on a network request nor frees an in-use SDK manager.
 }
@@ -152,6 +181,9 @@ Value UpdateController::Status() {
       {Value("build"), Value(version.second)},
       {Value("phase"), Value(PhaseName(state_->phase))},
       {Value("availableVersion"), Value(state_->available)},
+      {Value("releaseNotesMarkdown"), Value(state_->notes_markdown)},
+      {Value("releaseNotesHtml"), Value(state_->notes_html)},
+      {Value("packageSize"), Value(state_->package_size)},
       {Value("progress"), Value(state_->progress)},
       {Value("error"), Value(state_->error)},
   });
@@ -163,9 +195,9 @@ void UpdateController::Start(Operation operation) {
     std::lock_guard<std::mutex> lock(state->mutex);
     if (state->busy) return;
     if (operation == Operation::AutomaticCheck) {
-      const DWORD last = ReadPreference(L"LastCheck");
+      const DWORD last = ReadPreference(state->preference_key, L"LastCheck");
       if (!state->automatic || !state->configured || state->phase == Phase::Ready ||
-          (Now() >= last && Now() - last < 86400)) return;
+          (Now() >= last && Now() - last < static_cast<DWORD>(state->configuration.interval_seconds))) return;
     }
     state->busy = true;
     if (operation == Operation::Download) state->progress = 0;
@@ -179,9 +211,16 @@ void UpdateController::Start(Operation operation) {
     {
       std::lock_guard<std::mutex> lock(state->mutex);
       state->configured = state->session.configured();
+      if (operation == Operation::Initialize && state->configured) {
+        state->preference_key = state->session.preference_key();
+        state->automatic = ReadPreference(state->preference_key, L"AutomaticChecks") != 0;
+      }
       state->busy = false;
       state->phase = result.phase;
       state->available = std::move(result.available);
+      state->notes_markdown = std::move(result.notes_markdown);
+      state->notes_html = std::move(result.notes_html);
+      state->package_size = result.package_size;
       state->error = std::move(result.error);
       state->install_succeeded = operation == Operation::Install && result.succeeded;
     }

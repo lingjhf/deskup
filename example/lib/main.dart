@@ -12,7 +12,18 @@ class UpdateExample extends StatefulWidget {
 }
 
 class _UpdateExampleState extends State<UpdateExample> {
-  final updater = Deskup();
+  final updater = Deskup(
+    windows: const String.fromEnvironment('DESKUP_EXAMPLE_UPDATE_URL').isEmpty
+        ? null
+        : WindowsUpdateConfiguration(
+            source: GiteaUpdateSource(
+              repositoryUrl: Uri.parse(
+                const String.fromEnvironment('DESKUP_EXAMPLE_UPDATE_URL'),
+              ),
+            ),
+            expectedPackageId: 'DeskupExample',
+          ),
+  );
   StreamSubscription<UpdateStatus>? subscription;
   UpdateStatus status = const UpdateStatus();
   String error = '';
