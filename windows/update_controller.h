@@ -19,6 +19,7 @@ class UpdateController {
   static constexpr UINT_PTR kTimerId = 0xCD41;
   UpdateController(HWND window, flutter::BinaryMessenger* messenger);
   ~UpdateController();
+  void Shutdown(bool detach_channel = true);
   bool HandleMessage(UINT message, WPARAM wparam);
 
  private:
@@ -30,6 +31,7 @@ class UpdateController {
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> channel_;
   std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> install_result_;
   bool ready_ = false;
+  bool stopped_ = false;
 };
 
 }  // namespace deskup

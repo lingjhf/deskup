@@ -155,9 +155,15 @@ UpdateController::UpdateController(HWND window, flutter::BinaryMessenger* messen
 }
 
 UpdateController::~UpdateController() {
+  Shutdown();
+}
+
+void UpdateController::Shutdown(bool detach_channel) {
+  if (stopped_) return;
+  stopped_ = true;
   state_->alive.store(false);
   KillTimer(state_->window, kTimerId);
-  channel_->SetMethodCallHandler(nullptr);
+  if (detach_channel) channel_->SetMethodCallHandler(nullptr);
   // The worker owns the session until completion, so closing the window neither
   // blocks on a network request nor frees an in-use SDK manager.
 }
